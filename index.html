@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>อัตราแลกเปลี่ยน USD/THB - Bank of Thailand</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+      padding: 20px;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .header p {
+      font-size: 1.2em;
+      opacity: 0.9;
+    }
+
+    .card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .stat-label {
+      font-size: 0.9em;
+      opacity: 0.9;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #e1e5e9;
+    }
+
+    th {
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: white;
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background-color: #f8f9fa;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 400px;
+      margin-top: 20px;
+    }
+
+    .rate-change {
+      font-weight: bold;
+    }
+
+    .rate-up {
+      color: #28a745;
+    }
+
+    .rate-down {
+      color: #dc3545;
+    }
+
+    .rate-neutral {
+      color: #6c757d;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #667eea;
+    }
+
+    .loading-spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      background: #fee;
+      color: #c33;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #c33;
+    }
+
+    .success {
+      background: #efe;
+      color: #363;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #363;
+    }
+
+    .rate-card {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .rate-type {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .rate-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #667eea;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏦 อัตราแลกเปลี่ยน USD/THB</h1>
+      <p>ข้อมูลจาก Bank of Thailand - ตุลาคม 2017</p>
+    </div>
+
+    <div class="card">
+      <div class="controls">
+        <button onclick="loadData()">📥 โหลดข้อมูลล่าสุด</button>
+        <button onclick="exportToCSV()">📊 Export to CSV</button>
+      </div>
+
+      <div id="statsContainer" class="stats"></div>
+    </div>
+
+    <div class="card">
+      <h3>📈 กราฟอัตราแลกเปลี่ยน USD/THB</h3>
+      <div class="chart-container">
+        <canvas id="exchangeChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💰 อัตราแลกเปลี่ยนล่าสุด</h3>
+      <div id="latestRates" class="rate-card"></div>
+    </div>
+
+    <div class="card">
+      <h3>📋 ตารางอัตราแลกเปลี่ยนรายวัน</h3>
+      <div id="tableContainer"></div>
+    </div>
+
+    <div id="statusMessage"></div>
+  </div>
+
+  <script>
+    let exchangeData = [];
+    let chart = null;
+
+    async function loadData() {
+      showStatus('⏳ กำลังดึงข้อมูลจาก Bank of Thailand...', 'loading');
+      
+      try {
+        const response = await fetch('http://127.0.0.1:5000/botdata', {
+          method: 'GET',
+          mode: 'cors'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.result && data.result.data && data.result.data.data_detail) {
+          processData(data);
+          showStatus('✅ โหลดข้อมูลสำเร็จ!', 'success');
+        } else {
+          throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
+        }
+        
+      } catch (error) {
+        console.error('Error:', error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function processData(data) {
+      exchangeData = data.result.data.data_detail;
+      
+      // เรียงลำดับข้อมูลตามวันที่ (ใหม่ไปเก่า)
+      exchangeData.sort((a, b) => new Date(b.period) - new Date(a.period));
+      
+      updateStats();
+      renderLatestRates();
+      renderTable();
+      renderChart();
+    }
+
+    function updateStats() {
+      const statsContainer = document.getElementById('statsContainer');
+      
+      if (exchangeData.length === 0) {
+        statsContainer.innerHTML = '<div class="stat-card"><div class="stat-label">ไม่มีข้อมูล</div></div>';
+        return;
+      }
+
+      const latest = exchangeData[0];
+      const oldest = exchangeData[exchangeData.length - 1];
+      const change = parseFloat(latest.mid_rate) - parseFloat(oldest.mid_rate);
+      const changePercent = (change / parseFloat(oldest.mid_rate)) * 100;
+
+      statsContainer.innerHTML = `
+        <div class="stat-card">
+          <div class="stat-label">ช่วงวันที่</div>
+          <div class="stat-value">${exchangeData.length} วัน</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">อัตราล่าสุด</div>
+          <div class="stat-value">${parseFloat(latest.mid_rate).toFixed(4)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">การเปลี่ยนแปลง</div>
+          <div class="stat-value ${change >= 0 ? 'rate-up' : 'rate-down'}">
+            ${change >= 0 ? '↑' : '↓'} ${Math.abs(change).toFixed(4)}
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">% การเปลี่ยนแปลง</div>
+          <div class="stat-value ${changePercent >= 0 ? 'rate-up' : 'rate-down'}">
+            ${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLatestRates() {
+      const container = document.getElementById('latestRates');
+      
+      if (exchangeData.length === 0) return;
+
+      const latest = exchangeData[0];
+      
+      container.innerHTML = `
+        <div class="rate-type">
+          <div>อัตราซื้อเงินสด</div>
+          <div class="rate-value">${parseFloat(latest.buying_sight).toFixed(4)}</div>
+          <div style="font-size: 0.9em; color: #666;">Buying Sight</div>
+        </div>
+        <div class="rate-type">
+          <div>อัตราซื้อเงินโอน</div>
+          <div class="rate-value">${parseFloat(latest.buying_transfer).toFixed(4)}</div>
+          <div style="font-size: 0.9em; color: #666;">Buying Transfer</div>
+        </div>
+        <div class="rate-type">
+          <div>อัตรากลาง</div>
+          <div class="rate-value">${parseFloat(latest.mid_rate).toFixed(4)}</div>
+          <div style="font-size: 0.9em; color: #666;">Mid Rate</div>
+        </div>
+        <div class="rate-type">
+          <div>อัตราขาย</div>
+          <div class="rate-value">${parseFloat(latest.selling).toFixed(4)}</div>
+          <div style="font-size: 0.9em; color: #666;">Selling</div>
+        </div>
+      `;
+    }
+
+    function renderTable() {
+      const container = document.getElementById('tableContainer');
+      
+      if (exchangeData.length === 0) {
+        container.innerHTML = '<p>ไม่มีข้อมูล</p>';
+        return;
+      }
+
+      let tableHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>วันที่</th>
+              <th>ซื้อเงินสด</th>
+              <th>ซื้อเงินโอน</th>
+              <th>อัตรากลาง</th>
+              <th>ขาย</th>
+              <th>การเปลี่ยนแปลง</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      exchangeData.forEach((item, index) => {
+        const prevItem = exchangeData[index + 1]; // เพราะเรียงใหม่ไปเก่า
+        const change = prevItem ? parseFloat(item.mid_rate) - parseFloat(prevItem.mid_rate) : 0;
+        const changePercent = prevItem ? (change / parseFloat(prevItem.mid_rate)) * 100 : 0;
+        
+        const changeClass = change > 0 ? 'rate-up' : change < 0 ? 'rate-down' : 'rate-neutral';
+        const changeSymbol = change > 0 ? '↑' : change < 0 ? '↓' : '→';
+
+        tableHTML += `
+          <tr>
+            <td>${item.period}</td>
+            <td>${parseFloat(item.buying_sight).toFixed(4)}</td>
+            <td>${parseFloat(item.buying_transfer).toFixed(4)}</td>
+            <td><strong>${parseFloat(item.mid_rate).toFixed(4)}</strong></td>
+            <td>${parseFloat(item.selling).toFixed(4)}</td>
+            <td class="rate-change ${changeClass}">
+              ${prevItem ? `${changeSymbol} ${Math.abs(change).toFixed(4)} (${Math.abs(changePercent).toFixed(2)}%)` : '-'}
+            </td>
+          </tr>
+        `;
+      });
+
+      tableHTML += '</tbody></table>';
+      container.innerHTML = tableHTML;
+    }
+
+    function renderChart() {
+      const ctx = document.getElementById('exchangeChart').getContext('2d');
+      
+      if (chart) {
+        chart.destroy();
+      }
+
+      // เรียงข้อมูลเก่าไปใหม่สำหรับกราฟ
+      const sortedData = [...exchangeData].sort((a, b) => new Date(a.period) - new Date(b.period));
+      
+      const dates = sortedData.map(item => item.period);
+      const midRates = sortedData.map(item => parseFloat(item.mid_rate));
+      const buyingSight = sortedData.map(item => parseFloat(item.buying_sight));
+      const buyingTransfer = sortedData.map(item => parseFloat(item.buying_transfer));
+      const selling = sortedData.map(item => parseFloat(item.selling));
+
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [
+            {
+              label: 'อัตรากลาง (Mid Rate)',
+              data: midRates,
+              borderColor: '#667eea',
+              backgroundColor: 'rgba(102, 126, 234, 0.1)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'ซื้อเงินสด (Buying Sight)',
+              data: buyingSight,
+              borderColor: '#28a745',
+              backgroundColor: 'rgba(40, 167, 69, 0.1)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              fill: false,
+              tension: 0.4
+            },
+            {
+              label: 'ซื้อเงินโอน (Buying Transfer)',
+              data: buyingTransfer,
+              borderColor: '#17a2b8',
+              backgroundColor: 'rgba(23, 162, 184, 0.1)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              fill: false,
+              tension: 0.4
+            },
+            {
+              label: 'ขาย (Selling)',
+              data: selling,
+              borderColor: '#dc3545',
+              backgroundColor: 'rgba(220, 53, 69, 0.1)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              fill: false,
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'อัตราแลกเปลี่ยน USD/THB - ตุลาคม 2017',
+              font: {
+                size: 16
+              }
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'วันที่'
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'อัตราแลกเปลี่ยน (บาท)'
+              },
+              beginAtZero: false
+            }
+          },
+          interaction: {
+            intersect: false,
+            mode: 'nearest'
+          }
+        }
+      });
+    }
+
+    function exportToCSV() {
+      if (exchangeData.length === 0) {
+        showStatus('❌ ไม่มีข้อมูลให้ export', 'error');
+        return;
+      }
+      
+      const headers = ['วันที่', 'ซื้อเงินสด', 'ซื้อเงินโอน', 'อัตรากลาง', 'ขาย', 'สกุลเงิน'];
+      const csvData = exchangeData.map(item => [
+        item.period,
+        item.buying_sight,
+        item.buying_transfer,
+        item.mid_rate,
+        item.selling,
+        item.currency_name_th
+      ]);
+      
+      const csvContent = [headers, ...csvData]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `usd_thb_exchange_rates_2017_october.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showStatus('✅ Export CSV สำเร็จ!', 'success');
+    }
+
+    function showStatus(message, type) {
+      const statusEl = document.getElementById('statusMessage');
+      statusEl.innerHTML = `<div class="${type}">${message}</div>`;
+      
+      if (type !== 'error') {
+        setTimeout(() => {
+          statusEl.innerHTML = '';
+        }, 5000);
+      }
+    }
+
+    // โหลดข้อมูลอัตโนมัติเมื่อหน้าเว็บโหลดเสร็จ
+    document.addEventListener('DOMContentLoaded', loadData);
+  </script>
+</body>
+</html>
